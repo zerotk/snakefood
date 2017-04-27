@@ -14,9 +14,7 @@ write it.
 # See http://furius.ca/snakefood/ for licensing details.
 
 # stdlib imports
-import sys, __builtin__, re
-from os.path import *
-import compiler
+import sys, builtins, re, ast
 
 from snakefood.util import def_ignores, iter_pyfiles
 from snakefood.find import parse_python_source, get_ast_imports
@@ -86,7 +84,7 @@ def main():
         # (Optionally) Compute the list of names that are being assigned to.
         if opts.do_missing or opts.debug:
             vis = AssignVisitor()
-            compiler.walk(ast, vis)
+            ast.walk(ast, vis)
             assign_names = vis.finalize()
 
         # (Optionally) Check for potentially missing imports (this cannot be
@@ -96,7 +94,7 @@ def main():
             defined.update(x[0] for x in assign_names)
             _, simple_names = get_names_from_ast(ast)
             for name, lineno in simple_names:
-                if name not in defined and name not in __builtin__.__dict__:
+                if name not in defined and name not in builtins.__dict__:
                     write("%s:%d:  Missing import for '%s'\n" % (fn, lineno, name))
 
         # Print out all the schmoo for debugging.

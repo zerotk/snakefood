@@ -7,7 +7,8 @@ things.
 # See http://furius.ca/snakefood/ for licensing details.
 
 # stdlib imports
-import compiler
+# import compiler
+from ast import NodeVisitor
 
 __all__ = ('get_names_from_ast', 'filter_unused_imports',
            'NamesVisitor', 'AssignVisitor', 'AllVisitor')
@@ -16,9 +17,8 @@ __all__ = ('get_names_from_ast', 'filter_unused_imports',
 def get_names_from_ast(ast):
     "Find all the names being referenced/used."
     vis = NamesVisitor()
-    compiler.walk(ast, vis)
-    dotted_names, simple_names = vis.finalize()
-    return (dotted_names, simple_names)
+    vis.visit(ast)
+    return vis.finalize()
 
 
 def filter_unused_imports(ast, found_imports):
@@ -51,11 +51,12 @@ def filter_unused_imports(ast, found_imports):
     return used_imports, unused_imports
 
 
-class Visitor(object):
-    "Base class for our visitors."
+class Visitor(NodeVisitor):
+    """
+    Base class for our visitors.
+    """
     def continue_(self, node):
-        for child in node.getChildNodes():
-            self.visit(child)
+        return self.generic_visit(node)
 
 
 class NamesVisitor(Visitor):
@@ -64,21 +65,31 @@ class NamesVisitor(Visitor):
     attribute references.
     """
     def __init__(self):
+        Visitor.__init__(self)
         self.dotted = []
         self.simple = []
         self.attributes = []
 
-    def visitName(self, node):
-        self.attributes.append(node.name)
+    def visit_Name(self, node):
+        self.attributes.append(node.id)
         self.attributes.reverse()
         attribs = self.attributes
-        for i in xrange(1, len(attribs)+1):
+        for i in range(1, len(attribs)+1):
             self.dotted.append(('.'.join(attribs[0:i]), node.lineno))
         self.simple.append((attribs[0], node.lineno))
         self.attributes = []
 
-    def visitGetattr(self, node):
-        self.attributes.append(node.attrname)
+    # def visit_Assign(self, node):
+    #     # Ignore left-side of assign expressions
+    #     self.continue_(node.value)
+    #
+    # def visit_Call(self, node):
+    #     # Ignore function names
+    #     for i in node.args + node.keywords:
+    #         self.continue_(i)
+
+    def visit_Attribute(self, node):
+        self.attributes.append(node.attr)
         self.continue_(node)
 
     def finalize(self):

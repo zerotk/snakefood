@@ -7,7 +7,7 @@ version of the AST.
 # See http://furius.ca/snakefood/ for licensing details.
 
 import sys
-from compiler.ast import Node
+from ast import AST
 from snakefood.six import print_
 
 __all__ = ('printAst',)
@@ -21,12 +21,12 @@ def printAst(ast, indent='  ', stream=sys.stdout, initlevel=0):
 def rec_node(node, level, indent, write):
     "Recurse through a node, pretty-printing it."
     pfx = indent * level
-    if isinstance(node, Node):
+    if isinstance(node, AST):
         write(pfx)
         write(node.__class__.__name__)
         write('(')
 
-        if any(isinstance(child, Node) for child in node.getChildren()):
+        if any(isinstance(child, AST) for child in node.getChildren()):
             for i, child in enumerate(node.getChildren()):
                 if i != 0:
                     write(',')
@@ -54,7 +54,7 @@ def main():
     if not args:
         parser.error("You need to specify the name of Python files to print out.")
 
-    import compiler, traceback
+    import traceback
     for fn in args:
         print_('\n\n%s:\n' % fn)
         try:

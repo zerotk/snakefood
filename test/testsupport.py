@@ -36,6 +36,10 @@ def find_dirs(startdir):
     return rdirs
 
 
+def eprint(*args):
+    print(*args, file=sys.stderr)
+
+
 def run_sfood(*args, **kw):
     """
     Run sfood with the given args, and capture and return output.
@@ -43,9 +47,9 @@ def run_sfood(*args, **kw):
     """
     filterdir = kw.get('filterdir', None)
     cmd = [join(bindir, args[0])] + list(args[1:])
-    print >> sys.stderr, 'Running cmd:'
-    print >> sys.stderr, ' '.join(cmd)
-    print >> sys.stderr
+    eprint('Running cmd:')
+    eprint(sys.stderr, ' '.join(cmd))
+    eprint(sys.stderr)
     p = Popen(cmd, shell=False, stdout=PIPE, stderr=PIPE)
     out, log = p.communicate()
     if filterdir is not None:
@@ -54,8 +58,8 @@ def run_sfood(*args, **kw):
         log = re.sub(re.escape(from_), to_, log)
 
     if p.returncode != 0:
-        print >> sys.stderr, "Program failed to run: %s" % p.returncode
-        print >> sys.stderr, ' '.join(cmd)
+        eprint("Program failed to run: %s" % p.returncode)
+        eprint(' '.join(cmd))
 
     return out, log
 

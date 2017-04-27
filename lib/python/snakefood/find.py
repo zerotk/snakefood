@@ -6,13 +6,14 @@ This could be considered the core of snakefood, and where all the complexity liv
 # See http://furius.ca/snakefood/ for licensing details.
 
 import sys, os, logging
+from ast import NodeVisitor
 from os.path import *
 
 # FIXME: You have to port this to the ast module in order to port it to Python3.
-import compiler
-from compiler.visitor import ASTVisitor
-from compiler.ast import Discard, Const, AssName, List, Tuple
-from compiler.consts import OP_ASSIGN
+# import compiler
+# from compiler.visitor import ASTVisitor
+# from compiler.ast import Discard, Const, AssName, List, Tuple
+# from compiler.consts import OP_ASSIGN
 
 from snakefood.roots import find_package_root
 from snakefood.local import filter_unused_imports
@@ -88,6 +89,7 @@ def find_dependencies(fn, verbose, process_pragmas, ignore_unused=False):
 
     return files, file_errors
 
+
 def find_imports(fn, verbose, ignores):
     "Yields a list of the module names the file 'fn' depends on."
 
@@ -126,7 +128,7 @@ def find_imports(fn, verbose, ignores):
         yield (modname, lineno, islocal)
 
 
-class ImportVisitor(object):
+class ImportVisitor(NodeVisitor):
     """AST visitor for grabbing the import statements.
 
     This visitor produces a list of
@@ -140,22 +142,22 @@ class ImportVisitor(object):
         self.modules = []
         self.recent = []
 
-    def visitImport(self, node):
+    def visit_Import(self, node):
         self.accept_imports()
-        self.recent.extend((x[0], None, x[1] or x[0], node.lineno, 0)
-                           for x in node.names)
+        names = [(x.name, None, x.asname or x.name, node.lineno, 0) for x in node.names]
+        self.recent.extend(names)
 
-    def visitFrom(self, node):
+    def visit_ImportFrom(self, node):
         self.accept_imports()
-        modname = node.modname
+        modname = node.module
         if modname == '__future__':
-            return # Ignore these.
-        for name, as_ in node.names:
-            if name == '*':
+            return  # Ignore these.
+        for i in node.names:
+            if i.name == '*':
                 # We really don't know...
                 mod = (modname, None, None, node.lineno, node.level)
             else:
-                mod = (modname, name, as_ or name, node.lineno, node.level)
+                mod = (modname, i.name, i.asname or i.name, node.lineno, node.level)
             self.recent.append(mod)
 
     # For package initialization files, try to fetch the __all__ list, which
@@ -169,7 +171,7 @@ class ImportVisitor(object):
     #  when a new version of the package is released. Package authors may also
     #  decide not to support it, if they don't see a use for importing * from
     #  their package.
-    def visitAssign(self, node):
+    def visit_Assign(self, node):
         lhs = node.nodes
         if (len(lhs) == 1 and
             isinstance(lhs[0], AssName) and
@@ -185,7 +187,7 @@ class ImportVisitor(object):
                         mod = (modname, None, modname, node.lineno, 0)#node.level
                         self.recent.append(mod)
 
-    def default(self, node):
+    def WHAT_generic_visit(self, node):
         pragma = None
         if self.recent:
             if isinstance(node, Discard):
@@ -237,16 +239,16 @@ def get_local_names(found_imports):
             if lname is not None]
 
 
-class ImportWalker(ASTVisitor):
+class ImportWalker(NodeVisitor):
     "AST walker that we use to dispatch to a default method on the visitor."
 
     def __init__(self, visitor):
-        ASTVisitor.__init__(self)
+        NodeVisitor.__init__(self)
         self._visitor = visitor
 
-    def default(self, node, *args):
+    def visit(self, node, *args):
         self._visitor.default(node)
-        ASTVisitor.default(self, node, *args)
+        NodeVisitor.default(self, node, *args)
 
 
 def parse_python_source(fn):
